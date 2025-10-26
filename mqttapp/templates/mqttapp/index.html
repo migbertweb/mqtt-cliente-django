@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MQTT Cliente Web</title>
+    <!-- Tailwind Play CDN (rápido para desarrollo local) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js para estado reactivo ligero -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- MQTT.js -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  </head>
+  <body x-data="mqttApp()" :class="dark ? 'dark' : ''" class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 antialiased">
+    <div class="max-w-4xl mx-auto p-6">
+      <header class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-semibold">MQTT Cliente Web</h1>
+        <div class="flex items-center gap-3">
+          <div class="text-sm text-slate-600 dark:text-slate-300">Broker: <strong x-text="host + ':' + port"></strong></div>
+          <!-- dark mode toggle -->
+          <button @click="toggleDark()" class="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-700">
+            <template x-if="!dark"><span>🌞</span></template>
+            <template x-if="dark"><span>🌙</span></template>
+          </button>
+        </div>
+      </header>
+
+      <section class="bg-white dark:bg-slate-800 shadow rounded-lg p-4 mb-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-slate-500 dark:text-slate-400">Broker (host)</label>
+            <input x-model="host" class="mt-1 w-full border rounded p-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 dark:text-slate-400">WS Port</label>
+            <input x-model="port" class="mt-1 w-full border rounded p-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100" />
+          </div>
+          <div class="flex items-end gap-2">
+            <button @click="connect" :disabled="connected" class="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50">Conectar</button>
+            <button @click="disconnect" :disabled="!connected" class="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50">Desconectar</button>
+
+            <!-- status badge inside the button group -->
+            <div class="ml-3">
+              <div :class="connected ? 'inline-flex items-center gap-2 px-2 py-1 rounded-full bg-green-100 text-green-800' : 'inline-flex items-center gap-2 px-2 py-1 rounded-full bg-rose-100 text-rose-800'" class="text-sm">
+                <span :class="connected ? 'w-2 h-2 rounded-full bg-green-600 inline-block' : 'w-2 h-2 rounded-full bg-rose-600 inline-block'"></span>
+                <span x-text="connected ? 'Conectado' : 'Desconectado'"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white dark:bg-slate-800 shadow rounded-lg p-4 mb-4">
+        <h2 class="font-medium mb-2">Publicar</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div class="col-span-1">
+            <label class="block text-xs text-slate-500">Tópicos detectados</label>
+            <select x-model="selectedTopic" @change="onSelectTopic()" class="mt-1 w-full border rounded p-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100">
+              <option value="" class="text-slate-500 dark:text-slate-300">-- seleccionar tópico --</option>
+              <template x-for="(t, idx) in topicsList" :key="idx">
+                <option :value="t" x-text="t" class="text-slate-900 dark:text-slate-100"></option>
+              </template>
+            </select>
+            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">Último valor: <span class="font-medium dark:text-slate-200" x-text="topicsMap[selectedTopic] || '-' "></span></div>
+          </div>
+
+          <div class="col-span-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input x-model="topic" class="col-span-2 border rounded p-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" placeholder="topic/name" />
+              <input x-model="payload" class="border rounded p-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" placeholder="payload" />
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button @click="publishLocal" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Publicar desde navegador</button>
+              <button @click="publishBackend" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Publicar desde servidor (HTTP)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white dark:bg-slate-800 shadow rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-medium">Mensajes recibidos</h2>
+          <div class="flex items-center gap-2">
+            <input x-model="filter" placeholder="Filtrar tópico" class="border rounded p-1 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500" />
+            <button @click="clearMessages" class="text-sm text-rose-600">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="h-96 overflow-auto border rounded p-2 bg-slate-50 dark:bg-slate-900">
+          <template x-for="(m, idx) in filteredMessages" :key="idx">
+            <div class="p-2 mb-1 border-b last:border-b-0">
+              <div class="text-xs text-slate-500 dark:text-slate-400"> <span x-text="m.time"></span> • <span class="font-medium text-slate-200 dark:text-slate-100" x-text="m.topic"></span></div>
+              <div class="mt-1 text-sm text-slate-900 dark:text-slate-200" x-text="m.payload"></div>
+            </div>
+          </template>
+          <div x-show="filteredMessages.length === 0" class="text-sm text-slate-500">No hay mensajes</div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      function mqttApp(){
+        return {
+          host: '{{ mqtt_host }}',
+          port: '{{ mqtt_ws_port }}',
+          client: null,
+          connected: false,
+          dark: false,
+          messages: [],
+          filter: '',
+          topic: 'test/topic',
+          payload: 'hola desde web',
+          // topics map and list for selector
+          topicsMap: {},
+          topicsList: [],
+          topicsSet: new Set(),
+          selectedTopic: '',
+
+          connect(){
+            if(this.connected) return;
+            const url = `ws://${this.host}:${this.port}`;
+            this.client = mqtt.connect(url);
+            this.client.on('connect', () => {
+              this.connected = true;
+              this._addSystem('Conectado a ' + url);
+              // Subscribe to all topics
+              try { this.client.subscribe('#'); }
+              catch(e) { this._addSystem('Suscripción fallida: ' + e); }
+            });
+            this.client.on('message', (topic, message) => {
+              const payload = message.toString();
+              this._pushMessage(topic, payload);
+              // update topics map & list (latest value per topic)
+              this.topicsMap[topic] = payload;
+              if(!this.topicsSet.has(topic)){
+                this.topicsSet.add(topic);
+                this.topicsList.unshift(topic);
+                // keep list size reasonable
+                if(this.topicsList.length > 500) this.topicsList.pop();
+              }
+              // if user has selected this topic, update payload field live
+              if(this.selectedTopic === topic){
+                this.payload = payload;
+              }
+            });
+            this.client.on('error', (err) => {
+              this._addSystem('Error: ' + err);
+            });
+            this.client.on('close', () => {
+              this.connected = false;
+              this._addSystem('Conexión cerrada');
+            });
+          },
+
+          disconnect(){
+            if(this.client) {
+              try { this.client.end(); }
+              catch(e){}
+            }
+            this.connected = false;
+            this._addSystem('Desconectado');
+          },
+
+          publishLocal(){
+            if(!this.connected) return this._addSystem('No conectado');
+            this.client.publish(this.topic, this.payload);
+            this._addSystem('Publicado local → ' + this.topic + ': ' + this.payload);
+          },
+
+          async publishBackend(){
+            const form = new FormData();
+            form.append('topic', this.topic);
+            form.append('payload', this.payload);
+            try{
+              const resp = await fetch('/publish/', { method: 'POST', body: form });
+              const j = await resp.json();
+              this._addSystem('Publicado backend → ' + JSON.stringify(j));
+            } catch(e){
+              this._addSystem('Error publish backend: ' + e);
+            }
+          },
+
+          _pushMessage(topic, payload){
+            const now = new Date().toLocaleTimeString();
+            this.messages.unshift({ topic, payload, time: now });
+            // keep reasonable size
+            if(this.messages.length > 1000) this.messages.pop();
+          },
+
+          _addSystem(text){
+            const now = new Date().toLocaleTimeString();
+            this.messages.unshift({ topic: 'system', payload: text, time: now });
+          },
+
+          clearMessages(){ this.messages = []; },
+
+          onSelectTopic(){
+            if(!this.selectedTopic) return;
+            // populate topic and payload fields when a topic is selected
+            this.topic = this.selectedTopic;
+            this.payload = this.topicsMap[this.selectedTopic] || '';
+          },
+
+          toggleDark(){
+            this.dark = !this.dark;
+          },
+
+          get filteredMessages(){
+            if(!this.filter) return this.messages;
+            const f = this.filter.toLowerCase();
+            return this.messages.filter(m => m.topic.toLowerCase().includes(f) || m.payload.toLowerCase().includes(f));
+          }
+        };
+      }
+    </script>
+  </body>
+</html>
