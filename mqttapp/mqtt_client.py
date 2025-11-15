@@ -1,6 +1,23 @@
-"""Simple helper to publish messages via paho-mqtt synchronously.
+"""
+Archivo: mqtt_client.py
 
-This module is used by the Django view `publish` to forward messages to the broker.
+Descripción: Módulo helper para publicar mensajes MQTT de forma síncrona usando 
+paho-mqtt. Proporciona una función `publish()` que establece una conexión temporal
+al broker, publica el mensaje y cierra la conexión.
+
+Autor: migbertweb
+
+Fecha: 2024
+
+Repositorio: https://github.com/migbertweb/mqtt-cliente-django
+
+Licencia: MIT License
+
+Uso: Utilizado por la vista Django `publish` para reenviar mensajes al broker MQTT
+desde el backend. Se conecta al broker mediante TCP (puerto 1883 por defecto).
+
+Nota: Este proyecto usa Licencia MIT. Se recomienda (no obliga) mantener 
+derivados como código libre, especialmente para fines educativos.
 """
 import logging
 import time

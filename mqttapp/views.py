@@ -1,3 +1,25 @@
+"""
+Archivo: views.py
+
+Descripción: Vistas de la aplicación Django. Contiene dos vistas principales:
+- `index`: Renderiza la página principal con el cliente MQTT web
+- `publish`: Endpoint HTTP POST para publicar mensajes MQTT desde el backend
+
+Autor: migbertweb
+
+Fecha: 2024
+
+Repositorio: https://github.com/migbertweb/mqtt-cliente-django
+
+Licencia: MIT License
+
+Uso: Maneja las peticiones HTTP de la aplicación. La vista `index` pasa la 
+configuración MQTT al template, y `publish` permite publicar mensajes mediante
+peticiones POST.
+
+Nota: Este proyecto usa Licencia MIT. Se recomienda (no obliga) mantener 
+derivados como código libre, especialmente para fines educativos.
+"""
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST

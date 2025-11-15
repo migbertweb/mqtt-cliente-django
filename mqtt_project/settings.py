@@ -1,3 +1,24 @@
+"""
+Archivo: settings.py
+
+Descripción: Archivo de configuración principal del proyecto Django. Define
+todas las configuraciones del proyecto incluyendo aplicaciones instaladas,
+middleware, base de datos, y variables de configuración MQTT (host, puertos TCP y WebSocket).
+
+Autor: migbertweb
+
+Fecha: 2024
+
+Repositorio: https://github.com/migbertweb/mqtt-cliente-django
+
+Licencia: MIT License
+
+Uso: Configuración central del proyecto. Las variables MQTT pueden ser
+sobrescritas mediante variables de entorno (MQTT_HOST, MQTT_TCP_PORT, MQTT_WS_PORT).
+
+Nota: Este proyecto usa Licencia MIT. Se recomienda (no obliga) mantener 
+derivados como código libre, especialmente para fines educativos.
+"""
 import os
 from pathlib import Path
 
